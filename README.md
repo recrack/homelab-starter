@@ -6,8 +6,8 @@ grow from a single Mac or mini server into a larger self-hosted setup.
 
 ## Current status
 
-The first module is `macos/mole-maintenance`. It schedules the existing Mole
-CLI for weekly cleanup and updates through macOS `launchd`.
+The first module is `maintenance/mole`. It schedules the existing Mole CLI for
+cleanup and updates through macOS `launchd`.
 
 This repository is under active development. Do not run automation modules on
 important systems until you have reviewed their dry-run and recovery behavior.
