@@ -12,6 +12,7 @@ COMMAND_NAME="${0:t}"
 
 UPDATE_AT=03:00
 CLEANUP_AT=04:00
+CLEANUP_INTERVAL=0
 WEEKDAY=0
 LABEL_PREFIX=com.homelab.starter.mole
 
@@ -20,6 +21,7 @@ usage() {
     print -- "Usage:"
     print -- "  ${COMMAND_NAME}                         Show current schedule"
     print -- "  ${COMMAND_NAME} --update-at HH:MM --cleanup-at HH:MM [--day DAY]"
+    print -- "  ${COMMAND_NAME} --every-hour        Run cleanup every hour"
     print -- "  ${COMMAND_NAME} --label-prefix PREFIX"
     print -- "  ${COMMAND_NAME} on                      Re-enable the saved schedule"
     print -- "  ${COMMAND_NAME} off                     Disable both jobs"
@@ -42,6 +44,7 @@ load_saved_schedule() {
         case "$key" in
             UPDATE_AT) UPDATE_AT="$value" ;;
             CLEANUP_AT) CLEANUP_AT="$value" ;;
+            CLEANUP_INTERVAL) CLEANUP_INTERVAL="$value" ;;
             WEEKDAY) WEEKDAY="$value" ;;
             LABEL_PREFIX) LABEL_PREFIX="$value" ;;
             ''|\#*) ;;
@@ -97,7 +100,11 @@ show_status() {
     local update_label="${LABEL_PREFIX}.update"
     local cleanup_label="${LABEL_PREFIX}.cleanup"
     print -- "Update: ${days[$((WEEKDAY + 1))]} ${UPDATE_AT}"
-    print -- "Cleanup: ${days[$((WEEKDAY + 1))]} ${CLEANUP_AT}"
+    if (( CLEANUP_INTERVAL == 3600 )); then
+        print -- "Cleanup: every hour"
+    else
+        print -- "Cleanup: ${days[$((WEEKDAY + 1))]} ${CLEANUP_AT}"
+    fi
     for label in "$update_label" "$cleanup_label"; do
         if /bin/launchctl print "gui/$(/usr/bin/id -u)/${label}" >/dev/null 2>&1; then
             print -- "${label}: enabled"
@@ -140,7 +147,12 @@ while [[ $# -gt 0 ]]; do
         --cleanup-at)
             [[ $# -ge 2 ]] || usage
             CLEANUP_AT="$2"
+            CLEANUP_INTERVAL=0
             shift 2
+            ;;
+        --every-hour|--cleanup-every-hour)
+            CLEANUP_INTERVAL=3600
+            shift
             ;;
         --day)
             [[ $# -ge 2 ]] || usage
@@ -166,6 +178,10 @@ UPDATE_AT="$(normalize_time "$UPDATE_AT")"
 CLEANUP_AT="$(normalize_time "$CLEANUP_AT")"
 WEEKDAY="$(normalize_day "$WEEKDAY")"
 LABEL_PREFIX="$(normalize_label_prefix "$LABEL_PREFIX")"
+if [[ "$CLEANUP_INTERVAL" != <-> ]] || (( CLEANUP_INTERVAL != 0 && CLEANUP_INTERVAL != 3600 )); then
+    print -u2 -- "Invalid CLEANUP_INTERVAL: ${CLEANUP_INTERVAL}"
+    exit 64
+fi
 
 /bin/mkdir -p "$INSTALL_DIR"
 schedule_tmp="$(/usr/bin/mktemp "${INSTALL_DIR}/schedule.conf.XXXXXX")"
@@ -174,6 +190,7 @@ trap '/bin/rm -f "$schedule_tmp" 2>/dev/null || true' EXIT INT TERM
     print "WEEKDAY=${WEEKDAY}"
     print "UPDATE_AT=${UPDATE_AT}"
     print "CLEANUP_AT=${CLEANUP_AT}"
+    print "CLEANUP_INTERVAL=${CLEANUP_INTERVAL}"
     print "LABEL_PREFIX=${LABEL_PREFIX}"
 } > "$schedule_tmp"
 /bin/mv "$schedule_tmp" "$SCHEDULE_FILE"

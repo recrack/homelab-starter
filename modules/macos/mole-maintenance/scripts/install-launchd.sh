@@ -14,6 +14,7 @@ USER_ID="$(/usr/bin/id -u)"
 WEEKDAY=0
 UPDATE_AT=03:00
 CLEANUP_AT=04:00
+CLEANUP_INTERVAL=0
 LABEL_PREFIX=com.homelab.starter.mole
 
 if [[ -L "$SCHEDULE_FILE" ]]; then
@@ -26,6 +27,7 @@ if [[ -f "$SCHEDULE_FILE" ]]; then
             WEEKDAY) WEEKDAY="$value" ;;
             UPDATE_AT) UPDATE_AT="$value" ;;
             CLEANUP_AT) CLEANUP_AT="$value" ;;
+            CLEANUP_INTERVAL) CLEANUP_INTERVAL="$value" ;;
             LABEL_PREFIX) LABEL_PREFIX="$value" ;;
             ''|\#*) ;;
             *) print -u2 -- "Unknown schedule setting: ${key}"; exit 1 ;;
@@ -58,6 +60,10 @@ validate_time() {
 
 validate_time UPDATE_AT "$UPDATE_AT"
 validate_time CLEANUP_AT "$CLEANUP_AT"
+if [[ "$CLEANUP_INTERVAL" != <-> ]] || (( CLEANUP_INTERVAL != 0 && CLEANUP_INTERVAL != 3600 )); then
+    print -u2 -- "Invalid CLEANUP_INTERVAL in ${SCHEDULE_FILE}: ${CLEANUP_INTERVAL}"
+    exit 1
+fi
 if [[ ! "$LABEL_PREFIX" =~ '^[A-Za-z0-9][A-Za-z0-9.-]*[A-Za-z0-9]$' || "$LABEL_PREFIX" == *..* ]]; then
     print -u2 -- "Invalid LABEL_PREFIX in ${SCHEDULE_FILE}: ${LABEL_PREFIX}"
     exit 1
@@ -133,7 +139,13 @@ for plist in "$REPO_DIR"/launchd/mole-update.plist \
     if [[ "$template_action" == update ]]; then
         /usr/bin/plutil -replace StartCalendarInterval.Hour -integer "$UPDATE_HOUR" "$destination"
         /usr/bin/plutil -replace StartCalendarInterval.Minute -integer "$UPDATE_MINUTE" "$destination"
+    elif (( CLEANUP_INTERVAL == 3600 )); then
+        /usr/bin/plutil -remove StartCalendarInterval "$destination"
+        /usr/bin/plutil -insert StartInterval -integer "$CLEANUP_INTERVAL" "$destination"
     else
+        if /usr/bin/plutil -type StartInterval "$destination" >/dev/null 2>&1; then
+            /usr/bin/plutil -remove StartInterval "$destination"
+        fi
         /usr/bin/plutil -replace StartCalendarInterval.Hour -integer "$CLEANUP_HOUR" "$destination"
         /usr/bin/plutil -replace StartCalendarInterval.Minute -integer "$CLEANUP_MINUTE" "$destination"
     fi
@@ -146,5 +158,9 @@ for plist in "$REPO_DIR"/launchd/mole-update.plist \
 done
 
 print -- "Mole update: weekday=${WEEKDAY} ${UPDATE_AT}"
-print -- "Mole cleanup: weekday=${WEEKDAY} ${CLEANUP_AT}"
+if (( CLEANUP_INTERVAL == 3600 )); then
+    print -- "Mole cleanup: every hour"
+else
+    print -- "Mole cleanup: weekday=${WEEKDAY} ${CLEANUP_AT}"
+fi
 print -- "Logs: ${HOME}/Library/Logs/mole-auto-maintenance"

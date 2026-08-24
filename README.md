@@ -18,6 +18,7 @@ important systems until you have reviewed their dry-run and recovery behavior.
 ./bin/homelab module list
 ./bin/homelab status
 ./bin/homelab module run mole --update-at 03:00 --cleanup-at 04:00 --day sunday
+./bin/homelab module run mole --every-hour
 ```
 
 The Mole module requires macOS, Homebrew, and the `mole` formula. To disable
@@ -35,6 +36,7 @@ future tap can expose the same interface as:
 ```sh
 brew homelab status
 brew homelab module run mole --update-at 03:00 --cleanup-at 04:00
+brew homelab module run mole --every-hour
 ```
 
 The canonical command remains `homelab` so future Linux, NAS, and Proxmox
