@@ -1,0 +1,189 @@
+#!/bin/zsh
+# homelab-starter module-aware command dispatcher.
+
+set -euo pipefail
+
+ROOT_DIR="${0:A:h:h}"
+MODULES_DIR="${ROOT_DIR}/modules"
+
+usage() {
+    print -- "Usage:"
+    print -- "  homelab module list"
+    print -- "  homelab module run MODULE [args...]"
+    print -- "  homelab module status [MODULE]"
+    print -- "  homelab status"
+    print -- ""
+    print -- "Examples:"
+    print -- "  homelab module run mole --update-at 03:00 --cleanup-at 04:00"
+    print -- "  homelab module status mole"
+}
+
+manifest_paths() {
+    [[ -d "$MODULES_DIR" ]] || return 0
+    /usr/bin/find "$MODULES_DIR" -type f -name module.conf -print |
+        /usr/bin/sort
+}
+
+MODULE_ID=""
+MODULE_ALIASES=""
+MODULE_COMMAND=""
+MODULE_PLATFORM=""
+MODULE_ROOT=""
+
+load_manifest() {
+    local manifest="$1"
+    local key=""
+    local value=""
+
+    MODULE_ID=""
+    MODULE_ALIASES=""
+    MODULE_COMMAND=""
+    MODULE_PLATFORM=""
+    MODULE_ROOT="${manifest:h}"
+
+    while IFS='=' read -r key value || [[ -n "$key" ]]; do
+        case "$key" in
+            ID) MODULE_ID="$value" ;;
+            ALIASES) MODULE_ALIASES="$value" ;;
+            COMMAND) MODULE_COMMAND="$value" ;;
+            PLATFORM) MODULE_PLATFORM="$value" ;;
+            ''|\#*) ;;
+            *)
+                print -u2 -- "Unknown module setting in ${manifest}: ${key}"
+                return 1
+                ;;
+        esac
+    done < "$manifest"
+
+    [[ -n "$MODULE_ID" && -n "$MODULE_COMMAND" ]] || {
+        print -u2 -- "Module manifest is missing ID or COMMAND: ${manifest}"
+        return 1
+    }
+    [[ "$MODULE_COMMAND" != /* && "$MODULE_COMMAND" != *..* ]] || {
+        print -u2 -- "Module command must stay inside its module: ${manifest}"
+        return 1
+    }
+}
+
+module_matches() {
+    local query="$1"
+    local alias
+    [[ "$query" == "$MODULE_ID" ]] && return 0
+    for alias in ${(s:,:)MODULE_ALIASES}; do
+        [[ "$query" == "$alias" ]] && return 0
+    done
+    return 1
+}
+
+resolve_module() {
+    local query="$1"
+    local manifest=""
+
+    while IFS= read -r manifest; do
+        [[ -n "$manifest" ]] || continue
+        load_manifest "$manifest" || return 1
+        if module_matches "$query"; then
+            MODULE_COMMAND="${MODULE_ROOT}/${MODULE_COMMAND}"
+            return 0
+        fi
+    done < <(manifest_paths)
+    return 1
+}
+
+run_module() {
+    local query="$1"
+    shift
+    if ! resolve_module "$query"; then
+        print -u2 -- "Unknown module: ${query}"
+        print -u2 -- "Run 'homelab module list' to see available modules."
+        return 64
+    fi
+    [[ -x "$MODULE_COMMAND" ]] || {
+        print -u2 -- "Module command is not executable: ${MODULE_COMMAND}"
+        return 1
+    }
+    exec "$MODULE_COMMAND" "$@"
+}
+
+list_modules() {
+    local manifest=""
+    local found=0
+    while IFS= read -r manifest; do
+        [[ -n "$manifest" ]] || continue
+        load_manifest "$manifest" || return 1
+        print -- "${MODULE_ID} (${MODULE_PLATFORM:-unknown})"
+        found=1
+    done < <(manifest_paths)
+    (( found == 1 )) || print -- "No modules found."
+}
+
+status_modules() {
+    local manifest=""
+    local failures=0
+    local found=0
+    local module_status=0
+
+    while IFS= read -r manifest; do
+        [[ -n "$manifest" ]] || continue
+        found=1
+        load_manifest "$manifest" || return 1
+        MODULE_COMMAND="${MODULE_ROOT}/${MODULE_COMMAND}"
+        print -- "== ${MODULE_ID} =="
+        if [[ ! -x "$MODULE_COMMAND" ]]; then
+            print -- "unavailable: ${MODULE_COMMAND}"
+            failures=$((failures + 1))
+            continue
+        fi
+        module_status=0
+        "$MODULE_COMMAND" status || module_status=$?
+        (( module_status == 0 )) || failures=$((failures + 1))
+    done < <(manifest_paths)
+
+    (( found == 1 )) || print -- "No modules found."
+    return "$failures"
+}
+
+case "${1:-}" in
+    "")
+        usage
+        ;;
+    -h|--help|help)
+        usage
+        ;;
+    status)
+        status_modules
+        ;;
+    module)
+        case "${2:-}" in
+            list)
+                [[ $# -eq 2 ]] || { print -u2 -- "Usage: homelab module list"; exit 64; }
+                list_modules
+                ;;
+            run)
+                [[ $# -ge 3 ]] || { print -u2 -- "Usage: homelab module run MODULE [args...]"; exit 64; }
+                query="$3"
+                shift 3
+                run_module "$query" "$@"
+                ;;
+            status)
+                if [[ $# -eq 2 ]]; then
+                    status_modules
+                elif [[ $# -eq 3 ]]; then
+                    run_module "$3" status
+                else
+                    print -u2 -- "Usage: homelab module status [MODULE]"
+                    exit 64
+                fi
+                ;;
+            *)
+                print -u2 -- "Usage: homelab module {list|run|status}"
+                exit 64
+                ;;
+        esac
+        ;;
+    *)
+        print -u2 -- "Unknown homelab command: $1"
+        usage
+        exit 64
+        ;;
+esac

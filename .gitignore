@@ -1,0 +1,16 @@
+.DS_Store
+.idea/
+.vscode/
+
+.env
+.env.*
+!.env.example
+
+*.log
+**/schedule.conf
+**/.mole-update.lock/
+
+node_modules/
+dist/
+build/
+coverage/

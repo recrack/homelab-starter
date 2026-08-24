@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>__MOLE_CLEANUP_LABEL__</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__MOLE_AUTO_MAINTENANCE_SCRIPT__</string>
+		<string>clean</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>HOME</key>
+		<string>__MOLE_AUTO_HOME__</string>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+		<key>NONINTERACTIVE</key>
+		<string>1</string>
+		<key>HOMEBREW_NO_ENV_HINTS</key>
+		<string>1</string>
+	</dict>
+	<key>StartCalendarInterval</key>
+	<dict>
+		<key>Weekday</key>
+		<integer>0</integer>
+		<key>Hour</key>
+		<integer>4</integer>
+		<key>Minute</key>
+		<integer>0</integer>
+	</dict>
+	<key>ProcessType</key>
+	<string>Background</string>
+	<key>Nice</key>
+	<integer>10</integer>
+	<key>LowPriorityIO</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>__MOLE_AUTO_LAUNCHD_LOG__</string>
+	<key>StandardErrorPath</key>
+	<string>__MOLE_AUTO_LAUNCHD_LOG__</string>
+</dict>
+</plist>

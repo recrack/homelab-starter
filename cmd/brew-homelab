@@ -1,0 +1,17 @@
+#!/bin/zsh
+# Homebrew external-command adapter: brew homelab ...
+
+set -euo pipefail
+
+COMMAND_DIR="${0:A:h}"
+REPO_DIR="${COMMAND_DIR:h}"
+if [[ -x "${REPO_DIR}/bin/homelab" ]]; then
+    exec "${REPO_DIR}/bin/homelab" "$@"
+fi
+
+if command -v homelab >/dev/null 2>&1; then
+    exec "$(command -v homelab)" "$@"
+fi
+
+print -u2 -- "homelab is not installed. Add the project bin directory to PATH or install the Homebrew tap."
+exit 127
