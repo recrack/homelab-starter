@@ -10,6 +10,8 @@ of hard-coding a specific module.
 Current modules:
 
 - `maintenance/mole` — schedules Mole cleanup and updates with macOS launchd.
+- `maintenance/container-reclaim` — reports and reclaims sparse-image growth for
+  Apple `container` workloads.
 
 Future modules should be grouped by capability rather than by package manager
 or operating system. Platform-specific details belong inside the module or in
