@@ -9,6 +9,10 @@ grow from a single Mac or mini server into a larger self-hosted setup.
 The first module is `maintenance/mole`. It schedules the existing Mole CLI for
 cleanup and updates through macOS `launchd`.
 
+`maintenance/container-reclaim` reports and reclaims sparse-image growth for
+Apple `container` workloads, where blocks freed inside a container are never
+returned to the host on their own.
+
 This repository is under active development. Do not run automation modules on
 important systems until you have reviewed their dry-run and recovery behavior.
 
@@ -19,6 +23,8 @@ important systems until you have reviewed their dry-run and recovery behavior.
 ./bin/homelab status
 ./bin/homelab module run mole --update-at 03:00 --cleanup-at 04:00 --day sunday
 ./bin/homelab module run mole --every-hour
+./bin/homelab module run container-reclaim report
+./bin/homelab module run container-reclaim doctor
 ```
 
 The Mole module requires macOS, Homebrew, and the `mole` formula. To disable
