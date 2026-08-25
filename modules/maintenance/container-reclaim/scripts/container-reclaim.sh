@@ -159,19 +159,25 @@ cmd_trim() {
             fi
         fi
 
-        local before after
+        local before
         before="$(free_gib)"
 
-        if run_bounded "$EXEC_TIMEOUT" "$CONTAINER_CLI" exec "$name" fstrim -v / >/dev/null 2>&1; then
-            after="$(free_gib)"
-            log "trimmed ${name}: free ${before} GiB -> ${after} GiB"
+        local output
+        local trim_status=0
+        output="$(run_bounded "$EXEC_TIMEOUT" "$CONTAINER_CLI" exec "$name" fstrim -v / 2>&1)" \
+            || trim_status=$?
+
+        if (( trim_status == 0 )); then
+            log "trimmed ${name}: free ${before} GiB -> $(free_gib) GiB"
+        elif (( trim_status == 124 )); then
+            log "FAILED ${name}: exec timed out after ${EXEC_TIMEOUT}s (host volume may be full)"
+            failed=1
+        elif [[ "$output" == *"Operation not permitted"* ]]; then
+            # fstrim needs CAP_SYS_ADMIN; without it the ioctl is refused. Grant
+            # the capability when creating the container to make it trimmable.
+            log "skip ${name}: fstrim not permitted (container lacks CAP_SYS_ADMIN)"
         else
-            local status=$?
-            if (( status == 124 )); then
-                log "FAILED ${name}: exec timed out after ${EXEC_TIMEOUT}s (host volume may be full)"
-            else
-                log "FAILED ${name}: fstrim returned ${status}"
-            fi
+            log "FAILED ${name}: fstrim returned ${trim_status}: ${output}"
             failed=1
         fi
     done
@@ -205,7 +211,12 @@ cmd_doctor() {
             log "container exec: responsive"
         else
             log "PROBLEM: 'container exec' did not respond within ${EXEC_TIMEOUT}s (probed ${probe})."
-            log "  fstrim cannot run until this clears. It is usually a symptom of a full volume."
+            log "  fstrim cannot run until this clears. Two causes, in order of likelihood:"
+            log "    1. A long-lived apiserver has wedged. Restart it, which does not"
+            log "       touch container data:"
+            log "         launchctl kickstart -k user/\$(id -u)/com.apple.container.apiserver"
+            log "       Containers may need 'container start NAME' afterwards."
+            log "    2. The host volume is full, so the sparse image cannot grow."
             problems=1
         fi
     else

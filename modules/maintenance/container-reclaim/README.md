@@ -93,18 +93,38 @@ already blocked.
 | `EXEC_TIMEOUT` | `60` | Seconds before a container exec is abandoned |
 | `MIN_FREE_GIB` | `5` | Free-space floor for `doctor` |
 
-## Recovering an already-full host
+## When `exec` is unresponsive
 
-`trim` cannot help once `exec` is wedged. Free space by other means first:
+`trim` cannot run until `exec` works again. Check the cheap cause first.
+
+### A wedged apiserver
+
+An apiserver that has been up for weeks can stop servicing `exec` while
+containers keep running normally — health endpoints answer, work completes,
+only `exec` hangs. It looks like a full-disk symptom but is not one.
+
+```sh
+launchctl kickstart -k user/$(id -u)/com.apple.container.apiserver
+container list -a          # containers may now read as stopped
+container start NAME       # bring each one back
+```
+
+Restarting the apiserver does not touch container data. Containers are
+restarted, so pick a moment when no long job is in flight. Afterwards `exec`
+responds and `trim` reclaims the space in one pass.
+
+### A genuinely full volume
+
+If the apiserver restart does not help, the sparse image cannot grow because
+the host is out of space. Free some by other means first:
 
 1. Delete the build cache — `container builder delete`, recreated on next
    build by `container builder start`.
 2. Remove unused images and their snapshots.
 3. Clear host-side caches unrelated to the container runtime.
 
-Then run `doctor` until `exec` is responsive again, and `trim` to reclaim the
-rest. Recreating a container also returns the space, but discards anything
-written inside it that is not on a mounted volume.
+Then `doctor`, then `trim`. Recreating a container also returns the space, but
+discards anything written inside it that is not on a mounted volume.
 
 ## Notes
 
