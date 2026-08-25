@@ -75,7 +75,8 @@ CLEANUP_MINUTE=$((10#${CLEANUP_AT##*:}))
 UPDATE_LABEL="${LABEL_PREFIX}.update"
 CLEANUP_LABEL="${LABEL_PREFIX}.cleanup"
 
-/bin/mkdir -p "$AGENT_DIR" "$INSTALL_DIR" "${HOME}/Library/Logs/mole-auto-maintenance"
+/bin/mkdir -p "$AGENT_DIR" "$INSTALL_DIR"
+/bin/mkdir -p "${HOME}/Library/Logs/mole-auto-maintenance" 2>/dev/null || true
 
 if [[ ! -x "$RUNNER_SOURCE" ]]; then
     print -u2 -- "Runner is missing or not executable: ${RUNNER_SOURCE}"
@@ -124,7 +125,6 @@ for plist in "$REPO_DIR"/launchd/mole-update.plist \
         template_action="clean"
     fi
     destination="${AGENT_DIR}/${label}.plist"
-    launchd_log="${HOME}/Library/Logs/mole-auto-maintenance/${label}.launchd.log"
 
     /usr/bin/plutil -lint "$plist" >/dev/null
     if /bin/launchctl print "gui/${USER_ID}/${label}" >/dev/null 2>&1; then
@@ -149,8 +149,6 @@ for plist in "$REPO_DIR"/launchd/mole-update.plist \
         /usr/bin/plutil -replace StartCalendarInterval.Hour -integer "$CLEANUP_HOUR" "$destination"
         /usr/bin/plutil -replace StartCalendarInterval.Minute -integer "$CLEANUP_MINUTE" "$destination"
     fi
-    /usr/bin/plutil -replace StandardOutPath -string "$launchd_log" "$destination"
-    /usr/bin/plutil -replace StandardErrorPath -string "$launchd_log" "$destination"
     /bin/chmod 0644 "$destination"
     /usr/bin/plutil -lint "$destination" >/dev/null
     /bin/launchctl bootstrap "gui/${USER_ID}" "$destination"

@@ -6,7 +6,8 @@ This macOS module runs the existing Mole CLI from user LaunchAgents:
 - `mo clean` one hour later on the same day;
 - optional hourly `mo clean` mode;
 - a shared lock prevents update and cleanup from overlapping;
-- logs are stored under `~/Library/Logs/mole-auto-maintenance/`.
+- logs are stored under `~/Library/Logs/mole-auto-maintenance/` when space is
+  available; a full disk does not prevent the runner from starting.
 
 ## Prerequisites
 

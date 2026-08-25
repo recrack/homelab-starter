@@ -37,14 +37,27 @@ case "$action" in
     *) usage ;;
 esac
 
-/bin/mkdir -p "$STATE_DIR" "$LOG_DIR"
-
-log_file="${LOG_DIR}/${action}.log"
-exec >> "$log_file" 2>&1
-
 timestamp() {
     /bin/date -u '+%Y-%m-%dT%H:%M:%SZ'
 }
+
+/bin/mkdir -p "$STATE_DIR" 2>/dev/null || {
+    print -u2 -- "[$(timestamp)] ERROR state directory unavailable"
+    exit 1
+}
+
+logging_enabled=false
+if /bin/mkdir -p "$STATE_DIR" 2>/dev/null &&
+    /bin/mkdir -p "$LOG_DIR" 2>/dev/null; then
+    log_file="${LOG_DIR}/${action}.log"
+    if exec >> "$log_file" 2>&1; then
+        logging_enabled=true
+    fi
+fi
+
+if [[ "$logging_enabled" != "true" ]]; then
+    print -u2 -- "[$(timestamp)] WARNING log file unavailable; continuing without file logging"
+fi
 
 print -- "[$(timestamp)] START action=${action}"
 

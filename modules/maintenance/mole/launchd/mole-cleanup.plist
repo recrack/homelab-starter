@@ -36,8 +36,8 @@
 	<key>LowPriorityIO</key>
 	<true/>
 	<key>StandardOutPath</key>
-	<string>__MOLE_AUTO_LAUNCHD_LOG__</string>
+	<string>/dev/null</string>
 	<key>StandardErrorPath</key>
-	<string>__MOLE_AUTO_LAUNCHD_LOG__</string>
+	<string>/dev/null</string>
 </dict>
 </plist>
