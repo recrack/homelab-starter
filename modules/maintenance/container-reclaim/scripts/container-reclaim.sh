@@ -115,7 +115,7 @@ container_is_idle() {
 
     [[ -n "$health" ]] || return 2
 
-    print -- "$health" |
+    print -r -- "$health" |
         /usr/bin/python3 -c 'import json,sys; sys.exit(0 if not json.load(sys.stdin).get("running") else 1)' 2>/dev/null
 }
 
