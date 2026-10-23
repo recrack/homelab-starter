@@ -9,14 +9,27 @@ permissions:
 
 jobs:
   shell-and-plist:
-    runs-on: macos-latest
+    runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || fromJSON('["self-hosted","Linux","ARM64","pigma-homelab-starter"]') }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Ensure zsh is available
+        run: |
+          if ! command -v zsh >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install --yes zsh
+          fi
       - name: Check shell syntax
         run: |
           find . -name '*.sh' -o -path './bin/homelab' -o -path './cmd/brew-homelab' |
             while IFS= read -r file; do zsh -n "$file"; done
       - name: Check plist syntax
         run: |
-          find modules -name '*.plist' -print0 |
-            xargs -0 -n1 plutil -lint
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
+
+          for path in sorted(Path("modules").rglob("*.plist")):
+              with path.open("rb") as plist_file:
+                  plistlib.load(plist_file)
+              print(f"{path}: OK")
+          PY
